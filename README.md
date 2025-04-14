@@ -12,10 +12,10 @@ X: eXperimentation
 
 "Velox" is a Latin word meaning swift, rapid, or speedy. It's a term used to describe something that moves or happens with great speed.
 
-## Overview:
+## Overview
 Project V.E.L.O.X. is a research and development initiative focused on the design, prototyping, and testing of a compact, low-speed personal transport vehicle. Drawing inspiration from go-kart engineering principles, the platform has been scaled to full vehicle proportions while maintaining simplicity, accessibility, and cost-effectiveness.
 
-## Objective:
+## Objective
 To develop a modular, car-sized chassis capable of achieving controlled speeds between 25–50 km/h, suitable for applications in closed environments such as campuses, farms, private estates, or industrial complexes. The project explores drivetrain options, structural integrity, and user-focused design while ensuring compliance with basic safety and performance standards.
 
 ## Disclaimer

@@ -1,4 +1,4 @@
-# VELOX project
+# VELOX Project
 
 V: Vehicle
 

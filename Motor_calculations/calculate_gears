@@ -1,0 +1,39 @@
+import math
+
+def calculate_power(torque, rpm):
+    """Calculate mechanical power in watts."""
+    return torque * rpm * (2 * math.pi / 60)
+
+def is_power_within_threshold(power1, power2, threshold_percent):
+    """Check if two power values are within the given percentage threshold."""
+    difference = abs(power1 - power2)
+    threshold = (threshold_percent / 100) * power1
+    return difference <= threshold
+
+def calculate_gear_ratio(input_rpm, target_rpm):
+    """Calculate gear ratio based on RPMs."""
+    return input_rpm / target_rpm
+
+# --- Inputs ---
+input_rpm = float(input("Enter motor RPM: "))
+input_torque = float(input("Enter motor Torque (Nm): "))
+target_rpm = float(input("Enter target RPM: "))
+target_torque = float(input("Enter target Torque (Nm): "))
+threshold_percent = float(input("Enter power difference threshold (%): "))
+
+# --- Step 1: Calculate power values ---
+input_power = calculate_power(input_torque, input_rpm)
+target_power = calculate_power(target_torque, target_rpm)
+
+print(f"\nInput Power: {input_power:.2f} W")
+print(f"Target Power: {target_power:.2f} W")
+
+# --- Step 2: Compare power values ---
+if is_power_within_threshold(input_power, target_power, threshold_percent):
+    print("✅ Power values are within acceptable threshold.")
+    
+    # --- Step 3: Calculate gear ratio ---
+    gear_ratio = calculate_gear_ratio(input_rpm, target_rpm)
+    print(f"Required Gear Ratio (Input RPM / Target RPM): {gear_ratio:.2f}")
+else:
+    print("❌ Power difference too high. Gear ratio not applicable.")

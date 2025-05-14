@@ -1,4 +1,5 @@
 import numpy as np
+import json
 import matplotlib.pyplot as plt
 
 class Car_Calculations:
@@ -32,7 +33,7 @@ class Car_Calculations:
         # dP/dv = 2*(m/t)*v + μ*m*g
         return 2 * (self.mass / self.time) * velocity + self.friction_coeff * self.mass * self.g
 
-    def plot_power_and_derivative(self):
+    def plot_power_x_velocity(self):
         velocities = np.linspace(0, self.max_velocity, 100)
         powers = [self.power(v) for v in velocities]
         derivatives = [self.power_derivative(v) for v in velocities]
@@ -46,23 +47,18 @@ class Car_Calculations:
         ax1.set_ylabel("Power (W)", fontsize=12)
         ax1.grid(True, linestyle='--', alpha=0.6)
 
-        # Plot Derivative (dP/dv) vs. Velocity
-        ax2.plot(velocities, derivatives, 'r-', linewidth=2)
-        ax2.set_title("Slope of Power Curve (dP/dv) vs. Velocity", fontsize=14)
-        ax2.set_xlabel("Velocity (m/s)", fontsize=12)
-        ax2.set_ylabel("dP/dv (N)", fontsize=12)  # Units: Newtons
-        ax2.grid(True, linestyle='--', alpha=0.6)
-
         plt.tight_layout()
         plt.show()
 
 # User input
-mass = int(input("Mass of the Car (kg): "))  # e.g., 300
-radius = float(input("Radius of the wheel (m): "))  # e.g., 0.25
-time = float(input("Time to reach max velocity (s): "))  # e.g., 12
-max_velocity = float(input("Maximum velocity (m/s): "))  # e.g., 10.5
-friction_coeff = 0.015
+with open('Motor_calculations/car_and_motor_val.json', 'r') as f:
+    data = json.load(f)
+mass = data["mass"]  # e.g., 300
+radius = data["radius"]  # e.g., 0.25
+time = data["time"]  # e.g., 12
+max_velocity = data["max_velocity"] # e.g., 10.5
+friction_coeff = data["friction_coeff"]
 
 # Create car instance and plot
 car = Car_Calculations(mass, radius, time, friction_coeff, max_velocity)
-car.plot_power_and_derivative()
+car.plot_power_x_velocity()

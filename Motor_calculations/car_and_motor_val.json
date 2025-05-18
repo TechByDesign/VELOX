@@ -1,0 +1,17 @@
+{
+    "car_parameters": {
+        "acceleration": 0.7,
+        "mass": 300,
+        "tire_radius": 0.25,
+        "friction_constant": 0.02,
+        "gear_efficiency": 0.85,
+        "listed_power_rating": 3000,
+        "revolutions_per_minute": 4500,
+        "acceleration_due_to_gravity": 9.80665
+    },
+    "mass_breakdown": {
+        "Total": 300,
+        "Frame": 50,
+        "Person": 75
+    }
+}

@@ -79,6 +79,7 @@ class RunForceAnalysis(bpy.types.Operator):
         # Pass UI settings to your original code's global variables
         core.force_magnitude = context.scene.fa_force_magnitude
         core.selected_vertex_index = context.scene.fa_selected_vertex_index
+        core.display_text = context.scene.fa_display_text
         core.base_radius = context.scene.fa_base_radius
         core.text_scale = context.scene.fa_text_scale
         
@@ -134,6 +135,7 @@ def unregister():
     del bpy.types.Scene.fa_selected_vertex_index
     del bpy.types.Scene.fa_base_radius
     del bpy.types.Scene.fa_text_scale
+    del bpy.types.Scene.fa_display_text
     
     bpy.utils.unregister_class(ForceAnalysisPanel)
     bpy.utils.unregister_class(RunForceAnalysis)

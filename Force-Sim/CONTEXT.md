@@ -1,18 +1,47 @@
-# Pipe Force Analysis Blender Add-on - Complete Project Context
+# Blender Truss Force Analysis System
 
-## Project Overview
+## Overview
+A Blender add-on for analyzing truss structures under various loading conditions, focusing on non-destructive analysis and clear visualization.
 
-### Purpose
-A Blender add-on for structural analysis of pipe/truss systems using finite element methods, specifically designed for hobby EV car chassis design and analysis. The target vehicle is 60-80% the size of a real car, requiring realistic force analysis for chassis optimization.
+## Current Implementation
 
-### Core Objective
-Develop a Blender add-on that:
-- Analyzes forces in pipe/truss structures using stiffness matrix methods
-- Visualizes results with color-coded cylinders and force magnitude labels
-- Provides proper camera-facing text orientation
-- Handles XYZ force components at selected vertices
+### Force System
+- Customizable force components (X, Y, Z)
+- Force magnitude multiplier
+- Force vector projection using dot product
+- Proper handling of tension and compression
+- BFS-based force propagation through structure
 
----
+### Visualization
+- Color-coded force visualization:
+  - Red: Compression forces
+  - Blue: Tension forces
+  - Green: Zero force
+- Tapered cylinders for force-carrying members
+- Spheres for zero-force members
+- Camera-facing text labels
+- Force magnitude indicators
+
+### Technical Details
+- Non-destructive analysis (no mesh modification)
+- Separate visualization collection
+- Proper force vector management
+- Efficient force distribution algorithm
+- Error handling and cleanup functionality
+
+### Limitations
+- Simplified force distribution (no FEA)
+- Linear elastic behavior assumption
+- No material properties
+- No dynamic load support
+- No support detection system
+
+## Future Improvements
+- Add material properties
+- Implement proper FEA solver
+- Add support detection
+- Improve visualization controls
+- Add more force types and loading conditions
 
 ## Complete Development Timeline
 

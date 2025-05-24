@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## Version 0.1.6 - 2025-05-24
+### Features
+- Enhanced force visualization
+  - Added proper tension (blue) and compression (red) force visualization
+  - Force direction now properly affects color gradient
+  - Improved force magnitude scaling
+
+### Bug Fixes
+- Fixed force calculation parameter passing
+  - Properly pass force components and magnitude to calculation function
+  - Fixed UnboundLocalError by using function parameters instead of globals
+- Fixed force direction handling
+  - Now properly calculates force direction using dot product
+  - Forces can now be positive (tension) or negative (compression)
+
+## Version 0.1.5 - 2025-05-24
+### Features
+- Enhanced force calculation system
+  - Added customizable force components (X, Y, Z)
+  - Implemented force vector projection for more realistic force distribution
+  - Added force magnitude multiplier
+  - Improved force propagation through structure
+
+### Bug Fixes
+- Fixed edge force calculation to properly use selected vertex
+  - Added proper edge normalization
+  - Added edge existence validation
+  - Fixed force distribution logic
+
 ## Version 0.1.4 - 2025-05-24
 ### Bug Fixes
 - Fixed cylinder scaling and rotation issues

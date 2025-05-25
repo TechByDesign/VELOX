@@ -1,5 +1,60 @@
 # Blender Truss Force Analysis System
 
+## Development Methodology
+
+### Core Principles
+1. **Incremental Development**
+   - Break features into small, testable components
+   - Implement and test one piece at a time
+   - Verify each component before moving forward
+
+2. **Code Organization**
+   - Clear separation of concerns
+   - One responsibility per function
+   - Consistent naming conventions
+
+3. **Testing Strategy**
+   - Test each function in isolation
+   - Verify integration between components
+   - Test edge cases and error conditions
+
+4. **Change Management**
+   - Document all changes in CHANGELOG
+   - Keep CONTEXT.md up to date
+   - Track feature progress systematically
+
+### Common Pitfalls to Avoid
+1. **Over-Engineering**
+   - Implement only what's needed
+   - Avoid premature optimization
+   - Focus on core functionality first
+
+2. **Code Duplication**
+   - Reuse existing functions
+   - Create utility functions for common tasks
+   - Maintain DRY (Don't Repeat Yourself) principle
+
+3. **State Management**
+   - Track state changes carefully
+   - Document state transitions
+   - Use constants for configuration
+
+### Debugging Process
+1. **Isolate Issues**
+   - Test changes in isolation
+   - Verify each step independently
+   - Add logging for state tracking
+
+2. **Error Prevention**
+   - Add validation checks
+   - Handle edge cases
+   - Use clear error messages
+
+3. **Documentation**
+   - Document assumptions
+   - Track dependencies
+   - Update documentation with changes
+
 ## Overview
 A Blender add-on for analyzing truss structures under various loading conditions, focusing on non-destructive analysis and clear visualization.
 
@@ -368,9 +423,3 @@ os.makedirs(os.path.join(ext_path, "blender_org"), exist_ok=True)
 6. **Advanced Visualization**:
    - Force animation over time
    - Deformed shape display
-
----
-
-### Next Steps
-
-After all of this development, I want to regenerate the script, as I ran into many problems. Use this context pane as a start.

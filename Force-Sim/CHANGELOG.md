@@ -1,19 +1,35 @@
 # CHANGELOG
 
-## Version 0.1.6 - 2025-05-24
+## Version 0.1.7 - 2025-05-25
 ### Features
-- Enhanced force visualization
-  - Added proper tension (blue) and compression (red) force visualization
-  - Force direction now properly affects color gradient
-  - Improved force magnitude scaling
+- Enhanced vertex selection system
+  - Added proper BMesh handling for vertex selection
+  - Implemented automatic support detection
+  - Added visual feedback for selected points
 
 ### Bug Fixes
-- Fixed force calculation parameter passing
-  - Properly pass force components and magnitude to calculation function
-  - Fixed UnboundLocalError by using function parameters instead of globals
-- Fixed force direction handling
-  - Now properly calculates force direction using dot product
-  - Forces can now be positive (tension) or negative (compression)
+- Fixed BMesh resource management
+  - Added proper cleanup with try/finally blocks
+  - Added validation for BMesh existence
+  - Fixed mode switching issues
+
+### Lessons Learned
+1. **Resource Management**
+   - Always clean up resources (BMesh, collections, etc.)
+   - Use try/finally blocks for resource cleanup
+   - Validate resource existence before use
+
+2. **State Management**
+   - Track mode changes carefully
+   - Validate state transitions
+   - Clean up temporary objects
+
+3. **Development Process**
+   - Test changes in isolation
+   - Document assumptions
+   - Update documentation with changes
+
+## Version 0.1.6 - 2025-05-24
 
 ## Version 0.1.5 - 2025-05-24
 ### Features

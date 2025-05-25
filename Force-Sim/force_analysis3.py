@@ -11,7 +11,8 @@ force_components = {
     'z': 101.0      # Z component (vertical, default downward)
 }
 force_magnitude = 1.0  # Base magnitude multiplier
-selected_vertex_index = 15
+selected_vertex_index = None  # Force application vertex
+support_vertex_indices = []   # Support vertices
 base_radius = 0.05  # Base radius for all elements
 text_scale = 0.08
 input_force_color = (1, 1, 1, 1)  # White for input force
@@ -247,6 +248,138 @@ def visualize_forces(vertices, edges, edge_forces, max_force):
 # EXECUTION CONTROL
 # --------------------------
 
+def get_selected_vertex_index():
+    """Get the selected vertex index in Edit Mode"""
+    obj = bpy.context.active_object
+    if not obj or obj.type != 'MESH':
+        print("ERROR: Select a mesh object!")
+        return None
+    
+    # Get the selected vertex in Edit Mode
+    bpy.ops.object.mode_set(mode='EDIT')
+    
+    try:
+        bm = bmesh.from_edit_mesh(obj.data)
+        if bm is None:
+            print("ERROR: Could not get BMesh data!")
+            return None
+            
+        bm.verts.ensure_lookup_table()
+        selected_verts = [v for v in bm.verts if v.select]
+        
+        if len(selected_verts) == 1:
+            return selected_verts[0].index
+        elif len(selected_verts) > 1:
+            print("WARNING: Multiple vertices selected. Using first selected vertex.")
+            return selected_verts[0].index
+        else:
+            print("WARNING: No vertex selected. Using vertex 0 as default.")
+            return 0
+            
+    finally:
+        # Always return to OBJECT mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # Free BMesh if it exists
+        if 'bm' in locals():
+            bm.free()
+
+def detect_support_vertices(vertices):
+    """Automatically detect support vertices based on lowest Z coordinates"""
+    # Sort vertices by Z coordinate (lowest to highest)
+    sorted_verts = sorted(enumerate(vertices), key=lambda x: x[1].z)
+    
+    # Take the lowest 3 vertices as supports
+    support_indices = [idx for idx, _ in sorted_verts[:3]]
+    
+    print(f"Automatically detected support vertices: {support_indices}")
+    return support_indices
+
+def select_vertices():
+    """Vertex selection system with automatic support detection"""
+    obj = bpy.context.active_object
+    if not obj or obj.type != 'MESH':
+        print("ERROR: Select a mesh object!")
+        return False
+
+    # Get vertices and edges data
+    vertices, _ = get_mesh_data(obj)
+    
+    # Get force application vertex
+    global selected_vertex_index
+    selected_vertex_index = get_selected_vertex_index()
+    if selected_vertex_index is None:
+        return False
+    
+    print(f"\n=== Vertex Selection ===")
+    print(f"Force application vertex: {selected_vertex_index}")
+
+    # Get support vertices through manual input or automatic detection
+    print("\nEnter support vertex indices (comma-separated, or 'auto' for automatic detection): ")
+    
+    # Initialize support vertices as empty list
+    global support_vertex_indices
+    support_vertex_indices = []
+    
+    while True:
+        try:
+            support_input = input("\nSupport vertices (comma-separated, or 'auto' for automatic detection): ")
+            
+            if support_input.lower() == 'auto':
+                support_vertex_indices = detect_support_vertices(vertices)
+                print(f"Using automatic support detection: {support_vertex_indices}")
+                break
+            
+            if support_input.lower() == '':
+                print("Using automatic support detection...")
+                support_vertex_indices = detect_support_vertices(vertices)
+                break
+                
+            indices = [int(idx.strip()) for idx in support_input.split(',')]
+            support_vertex_indices.extend(indices)
+            print(f"Current support vertices: {support_vertex_indices}")
+            
+        except ValueError:
+            print("ERROR: Please enter valid vertex indices or 'auto'!")
+            continue
+        except Exception as e:
+            print(f"ERROR: {str(e)}")
+            continue
+
+    # Validate selections
+    if not support_vertex_indices:
+        print("Using automatic support detection...")
+        support_vertex_indices = detect_support_vertices(vertices)
+        print(f"Using automatic support detection: {support_vertex_indices}")
+    
+    # Create visual feedback
+    collection = get_force_collection()
+    
+    # Force application vertex marker (red)
+    v = obj.data.vertices[selected_vertex_index]
+    marker = bpy.data.objects.new(f"ForceMarker", bpy.data.meshes.new("ForceMarker"))
+    marker.location = v.co
+    marker.scale = (0.1, 0.1, 0.1)
+    marker.show_name = True
+    marker.name = "Force Application Point"
+    collection.objects.link(marker)
+    
+    # Support vertex markers (blue)
+    for idx in support_vertex_indices:
+        try:
+            v = obj.data.vertices[idx]
+            marker = bpy.data.objects.new(f"SupportMarker_{idx}", bpy.data.meshes.new("SupportMarker"))
+            marker.location = v.co
+            marker.scale = (0.08, 0.08, 0.08)
+            marker.show_name = True
+            marker.name = f"Support Point {idx}"
+            collection.objects.link(marker)
+        except IndexError:
+            print(f"WARNING: Vertex index {idx} is out of range!")
+            continue
+
+    return True
+
 def run_analysis():
     """Main coordinator"""
     obj = bpy.context.active_object
@@ -254,11 +387,25 @@ def run_analysis():
         print("ERROR: Select a mesh object!")
         return
 
+    # First, let user select vertices
+    if not select_vertices():
+        return
+
     if bpy.context.mode != 'OBJECT':
         bpy.ops.object.mode_set(mode='OBJECT')
 
     clear_force_collection()
     vertices, edges = get_mesh_data(obj)
+    
+    # Check if we have a force application point
+    if selected_vertex_index is None:
+        print("ERROR: No force application vertex selected!")
+        return
+    
+    # Check if we have enough supports
+    if len(support_vertex_indices) < 3:
+        print("WARNING: Less than 3 support points selected. Structure may be unstable.")
+    
     edge_forces, max_force = calculate_forces(vertices, edges, force_components, force_magnitude)
     visualize_forces(vertices, edges, edge_forces, max_force)
 

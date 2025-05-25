@@ -66,6 +66,9 @@ A Blender add-on for analyzing truss structures under various loading conditions
 - Force vector projection using dot product
 - Proper handling of tension and compression
 - BFS-based force propagation through structure
+- Vertex selection system
+- Automatic support detection
+- Support vertex visualization
 
 ### Visualization
 - Color-coded force visualization:
@@ -76,29 +79,94 @@ A Blender add-on for analyzing truss structures under various loading conditions
 - Spheres for zero-force members
 - Camera-facing text labels
 - Force magnitude indicators
+- Separate visualization collection
 
 ### Technical Details
 - Non-destructive analysis (no mesh modification)
-- Separate visualization collection
-- Proper force vector management
-- Efficient force distribution algorithm
-- Error handling and cleanup functionality
+- Proper BMesh handling
+- Mode switching
+- Resource cleanup
+- Error handling and validation
+- Collection management
 
-### Limitations
-- Simplified force distribution (no FEA)
-- Linear elastic behavior assumption
-- No material properties
-- No dynamic load support
-- No support detection system
+## Technical Considerations
 
-## Future Improvements
-- Add material properties
-- Implement proper FEA solver
-- Add support detection
-- Improve visualization controls
-- Add more force types and loading conditions
+### Key Implementation Points
+1. **Mesh Handling**
+   - Proper BMesh management
+   - Resource cleanup
+   - Mode switching
+   - Mesh validation
 
-## Complete Development Timeline
+2. **State Management**
+   - Track analysis state
+   - Handle mode changes
+   - Maintain consistent state
+   - Implement undo/redo
+
+3. **Error Handling**
+   - Validate inputs
+   - Handle edge cases
+   - Provide clear feedback
+   - Add logging
+
+### Potential Pitfalls
+1. **Resource Leaks**
+   - BMesh data not freed
+   - Temporary objects not cleaned
+   - Collections not removed
+   - Mesh not validated
+
+2. **State Issues**
+   - Mode switching errors
+   - Invalid selections
+   - Corrupted data
+   - Lost state
+
+3. **Performance**
+   - Large mesh handling
+   - Complex calculations
+   - Memory management
+   - Slow updates
+
+## Testing Strategy
+
+### Unit Tests
+1. **Core Functions**
+   - Force calculations
+   - Mesh operations
+   - Support detection
+   - Material properties
+
+2. **Edge Cases**
+   - Invalid inputs
+   - Empty meshes
+   - Complex structures
+   - Large forces
+
+### Integration Tests
+1. **Complete Analysis**
+   - Force application
+   - Support detection
+   - Visualization
+   - Material interaction
+
+2. **Performance**
+   - Large meshes
+   - Complex structures
+   - Real-time updates
+   - Memory usage
+
+## Version History
+
+### v0.1.7 (Current)
+- Basic force analysis system
+- Vertex selection
+- Support detection
+- Force visualization
+- Resource management
+- BFS force propagation
+- Color-coded visualization
 
 ### Phase 1: Initial Implementation
 **Status**: Basic functionality implemented

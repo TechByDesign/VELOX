@@ -129,6 +129,41 @@ A Blender add-on for analyzing truss structures under various loading conditions
    - Memory management
    - Slow updates
 
+4. **Blender API Issues**
+   
+   **Root Cause of Recent Error**
+   - Error: `IndexError: bpy_prop_collection[index]: index 0 out of range, size 0`
+   - Location: When accessing `active_obj.data.materials[0]` in `visualize_forces()`
+   - Problem: Tried to access first material of an object that had no materials
+   - Solution: Always check if materials exist before accessing them
+
+   **Key Points to Remember**
+   1. **Object Creation**
+      - Use `bpy.context.view_layer.objects.active` for reliable object access
+      - Always check if object creation was successful
+      - Example:
+        ```python
+        bpy.ops.mesh.primitive_cube_add()
+        obj = bpy.context.view_layer.objects.active
+        if obj is None:
+            print("Error: Failed to create object")
+            return
+        ```
+
+   2. **Material Access**
+      - Check if object has materials before accessing them
+      - Use `hasattr(obj.data, 'materials') and obj.data.materials`
+      - Example:
+        ```python
+        if hasattr(obj.data, 'materials') and obj.data.materials:
+            material = obj.data.materials[0]
+        ```
+
+   3. **Collection Management**
+      - Verify object existence before linking to collections
+      - Clean up failed operations
+      - Handle edge cases gracefully
+
 ## Testing Strategy
 
 ### Unit Tests

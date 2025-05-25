@@ -2,6 +2,77 @@ import bpy
 import bmesh
 from mathutils import Vector, Quaternion
 import math
+from enum import Enum
+from typing import List, Dict, Optional, Tuple
+
+# ===== SUPPORT SYSTEM =====
+class SupportType(Enum):
+    FIXED = 'fixed'     # All DOFs constrained (X,Y,Z translations)
+    PINNED = 'pinned'   # X,Y translations constrained, Z rotation free
+    ROLLER = 'roller'   # Single axis constraint (specified by direction)
+
+class Support:
+    """Represents a support constraint in the structural analysis.
+    
+    Attributes:
+        vertex_index: Index of the vertex where support is applied
+        support_type: Type of support (FIXED, PINNED, ROLLER)
+        direction: For ROLLER supports, the normal vector of the rolling plane
+        reaction_forces: Calculated reaction forces at this support
+    """
+    def __init__(self, vertex_index: int, support_type: SupportType = SupportType.FIXED, 
+                 direction: Optional[Vector] = None):
+        self.vertex_index = vertex_index
+        self.support_type = support_type
+        self.direction = direction.normalized() if direction else Vector((0, 0, 1))
+        self.reaction_forces = None
+    
+    def get_constraints(self) -> List[bool]:
+        """Returns a list of boolean constraints [x, y, z] where True means constrained."""
+        if self.support_type == SupportType.FIXED:
+            return [True, True, True]  # All translations constrained
+        elif self.support_type == SupportType.PINNED:
+            return [True, True, False]  # X,Y constrained, Z free
+        elif self.support_type == SupportType.ROLLER:
+            # Only constrain movement in the direction normal to the rolling plane
+            normal = self.direction
+            # This is simplified - in practice, would need to project onto global axes
+            return [bool(abs(normal.x) > 0.9), bool(abs(normal.y) > 0.9), bool(abs(normal.z) > 0.9)]
+        return [False, False, False]
+
+# Global support storage
+supports: Dict[int, Support] = {}
+
+def add_support(vertex_index: int, support_type: SupportType, direction: Optional[Vector] = None) -> bool:
+    """Add or update a support at the given vertex."""
+    if vertex_index < 0:
+        return False
+    supports[vertex_index] = Support(vertex_index, support_type, direction)
+    return True
+
+def remove_support(vertex_index: int) -> bool:
+    """Remove support from the given vertex."""
+    if vertex_index in supports:
+        del supports[vertex_index]
+        return True
+    return False
+
+def clear_supports() -> None:
+    """Remove all supports."""
+    supports.clear()
+
+def get_supports() -> List[Support]:
+    """Get a list of all supports."""
+    return list(supports.values())
+
+def get_support(vertex_index: int) -> Optional[Support]:
+    """Get the support at the given vertex, or None if none exists."""
+    return supports.get(vertex_index)
+
+def has_support(vertex_index: int) -> bool:
+    """Check if a support exists at the given vertex."""
+    return vertex_index in supports
+# =========================
 
 # ===== SETTINGS =====
 # Force configuration
@@ -177,42 +248,57 @@ def create_force_material(edge_key, force, max_force, is_input_force):
     return mat
 
 def create_force_visual(collection, edge, force, midpoint, direction, max_force):
-    """Creates either sphere (0N) or tapered cylinder (force) in specified collection"""
+    """Creates force visualization in specified collection"""
     is_input = edge[0] == selected_vertex_index or edge[1] == selected_vertex_index
     
+    # Create object based on force magnitude
     if abs(force) < 0.001:  # Zero force - create sphere
         bpy.ops.mesh.primitive_uv_sphere_add(
             radius=base_radius * 1.5,
             location=midpoint
         )
-        vis_obj = bpy.context.object
-        vis_obj.name = f"ForceVis_{edge[0]}_{edge[1]}"
-    else:  # Force present - create tapered cylinder
+    else:  # Force present - create cylinder
         bpy.ops.mesh.primitive_cylinder_add(
             vertices=16,
             radius=base_radius * (0.5 + 0.5 * abs(force)/max_force),
-            depth=direction.length * 0.8,  # 80% of edge length
+            depth=direction.length * 0.8,
             location=midpoint
         )
-        vis_obj = bpy.context.object
-        vis_obj.name = f"ForceVis_{edge[0]}_{edge[1]}"
-        
+        # Store the active object before modifying it
+        vis_obj = bpy.context.view_layer.objects.active
+        if vis_obj is None:
+            print("ERROR: Failed to create visualization object!")
+            return None
+            
         # Rotate cylinder to align with edge
         rot_quat = direction.to_track_quat('Z', 'Y')
         if force < 0:  # Reverse for compression
             rot_quat = rot_quat @ Quaternion((0, 0, 1), math.pi)
         vis_obj.rotation_euler = rot_quat.to_euler()
+        
+        # Set name and material
+        vis_obj.name = f"ForceVis_{edge[0]}_{edge[1]}"
+        mat = create_force_material(edge, force, max_force, is_input)
+        vis_obj.data.materials.append(mat)
+        collection.objects.link(vis_obj)
+        
+        return vis_obj
     
-    # Assign material and add to collection
+    # For sphere case
+    vis_obj = bpy.context.view_layer.objects.active
+    if vis_obj is None:
+        print("ERROR: Failed to create visualization object!")
+        return None
+        
+    vis_obj.name = f"ForceVis_{edge[0]}_{edge[1]}"
     mat = create_force_material(edge, force, max_force, is_input)
     vis_obj.data.materials.append(mat)
     collection.objects.link(vis_obj)
-    bpy.context.collection.objects.unlink(vis_obj)  # Remove from main collection
     
     return vis_obj
 
 def visualize_forces(vertices, edges, edge_forces, max_force):
-    """Creates all visual elements in Forces collection"""
+    """Creates visual elements for forces"""
     force_collection = get_force_collection()
     
     for edge in edges:
@@ -221,28 +307,39 @@ def visualize_forces(vertices, edges, edge_forces, max_force):
         midpoint = (v1 + v2) / 2
         direction = v2 - v1
         
-        # Create visual element
-        vis_obj = create_force_visual(force_collection, edge, force, midpoint, direction, max_force)
+        # Create force visualization
+        create_force_visual(force_collection, edge, force, midpoint, direction, max_force)
         
-        # Create and position label
-        bpy.ops.object.text_add(
-            location=midpoint + direction.normalized() * base_radius * 3
-        )
-        text = bpy.context.object
+        # Create force label
+        bpy.ops.object.text_add(location=midpoint + direction.normalized() * base_radius * 3)
+        text = bpy.context.view_layer.objects.active
+        if text is None:
+            print(f"ERROR: Failed to create text label for edge {edge}")
+            continue
+            
+        # Set text properties
         text.name = f"ForceLabel_{edge[0]}_{edge[1]}"
         text.data.body = f"{force:.1f} N"
         text.data.align_x = 'CENTER'
         text.data.align_y = 'CENTER'
         text.scale = (text_scale, text_scale, text_scale)
         
-        # Make text face camera
-        text.rotation_euler = vis_obj.rotation_euler
-        text.rotation_euler.x += math.pi/2  # Stand text upright
-        text.active_material = vis_obj.data.materials[0]
+        # Store the active object before modifying it
+        active_obj = bpy.context.view_layer.objects.active
+        if active_obj is None:
+            print(f"ERROR: No active object found for edge {edge}")
+            continue
+            
+        # Orient text
+        text.rotation_euler = active_obj.rotation_euler
+        text.rotation_euler.x += math.pi/2
         
-        # Add text to collection
+        # Only set material if the active object has materials
+        if hasattr(active_obj.data, 'materials') and active_obj.data.materials:
+            text.active_material = active_obj.data.materials[0]
+        
+        # Add to collection
         force_collection.objects.link(text)
-        bpy.context.collection.objects.unlink(text)
 
 # --------------------------
 # EXECUTION CONTROL
@@ -302,7 +399,7 @@ def select_vertices():
         print("ERROR: Select a mesh object!")
         return False
 
-    # Get vertices and edges data
+    # Get vertices data
     vertices, _ = get_mesh_data(obj)
     
     # Get force application vertex
@@ -314,30 +411,23 @@ def select_vertices():
     print(f"\n=== Vertex Selection ===")
     print(f"Force application vertex: {selected_vertex_index}")
 
-    # Get support vertices through manual input or automatic detection
-    print("\nEnter support vertex indices (comma-separated, or 'auto' for automatic detection): ")
-    
-    # Initialize support vertices as empty list
+    # Get support vertices
     global support_vertex_indices
     support_vertex_indices = []
     
     while True:
         try:
-            support_input = input("\nSupport vertices (comma-separated, or 'auto' for automatic detection): ")
+            support_input = input("\nSupport vertices (comma-separated, or 'auto' for automatic detection): ").lower()
             
-            if support_input.lower() == 'auto':
+            if support_input == 'auto' or support_input == '':
                 support_vertex_indices = detect_support_vertices(vertices)
                 print(f"Using automatic support detection: {support_vertex_indices}")
                 break
-            
-            if support_input.lower() == '':
-                print("Using automatic support detection...")
-                support_vertex_indices = detect_support_vertices(vertices)
-                break
                 
             indices = [int(idx.strip()) for idx in support_input.split(',')]
-            support_vertex_indices.extend(indices)
-            print(f"Current support vertices: {support_vertex_indices}")
+            support_vertex_indices = indices
+            print(f"Support vertices: {support_vertex_indices}")
+            break
             
         except ValueError:
             print("ERROR: Please enter valid vertex indices or 'auto'!")
@@ -346,16 +436,10 @@ def select_vertices():
             print(f"ERROR: {str(e)}")
             continue
 
-    # Validate selections
-    if not support_vertex_indices:
-        print("Using automatic support detection...")
-        support_vertex_indices = detect_support_vertices(vertices)
-        print(f"Using automatic support detection: {support_vertex_indices}")
-    
     # Create visual feedback
     collection = get_force_collection()
     
-    # Force application vertex marker (red)
+    # Force application vertex marker
     v = obj.data.vertices[selected_vertex_index]
     marker = bpy.data.objects.new(f"ForceMarker", bpy.data.meshes.new("ForceMarker"))
     marker.location = v.co
@@ -364,7 +448,7 @@ def select_vertices():
     marker.name = "Force Application Point"
     collection.objects.link(marker)
     
-    # Support vertex markers (blue)
+    # Support vertex markers
     for idx in support_vertex_indices:
         try:
             v = obj.data.vertices[idx]

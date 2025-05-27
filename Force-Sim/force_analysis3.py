@@ -77,11 +77,11 @@ def has_support(vertex_index: int) -> bool:
 # ===== SETTINGS =====
 # Force configuration
 force_components = {
-    'x': -100,      # X component (horizontal)
-    'y': 100.0,      # Y component (horizontal)
-    'z': 101.0      # Z component (vertical, default downward)
+    'x': 0,      # X component (horizontal)
+    'y': 0,      # Y component (horizontal)
+    'z': 1      # Z component (vertical, default downward)
 }
-force_magnitude = 1.0  # Base magnitude multiplier
+force_magnitude = 1000  # Base magnitude multiplier
 selected_vertex_index = None  # Force application vertex
 support_vertex_indices = []   # Support vertices
 base_radius = 0.05  # Base radius for all elements
@@ -381,16 +381,38 @@ def get_selected_vertex_index():
         if 'bm' in locals():
             bm.free()
 
-def detect_support_vertices(vertices):
-    """Automatically detect support vertices based on lowest Z coordinates"""
+def detect_support_vertices(vertices, support_type=SupportType.FIXED, max_supports=4):
+    """Automatically detect support vertices based on lowest Z coordinates.
+    
+    Args:
+        vertices: List of vertex coordinates
+        support_type: Type of support to create (default: FIXED for chassis analysis)
+        max_supports: Maximum number of supports to create (default: 4 for wheel positions)
+        
+    Returns:
+        list: List of Support objects for the detected vertices
+    """
     # Sort vertices by Z coordinate (lowest to highest)
     sorted_verts = sorted(enumerate(vertices), key=lambda x: x[1].z)
     
-    # Take the lowest 3 vertices as supports
-    support_indices = [idx for idx, _ in sorted_verts[:3]]
+    # Create supports for the lowest vertices (up to max_supports)
+    support_objs = []
+    for i, (idx, vert) in enumerate(sorted_verts[:max_supports]):
+        support = Support(vertex_index=idx, support_type=support_type)
+        support_objs.append(support)
+        print(f"Auto support {i+1}: Vertex {idx} - {support_type.value}")
     
-    print(f"Automatically detected support vertices: {support_indices}")
-    return support_indices
+    # If we have fewer than max_supports, try to distribute them
+    if len(support_objs) < max_supports and len(sorted_verts) > len(support_objs):
+        # Sort by X coordinate to get left/right distribution
+        x_sorted = sorted(enumerate(vertices), key=lambda x: abs(x[1].x))
+        for i in range(len(support_objs), min(max_supports, len(sorted_verts))):
+            idx = x_sorted[i][0]
+            support = Support(vertex_index=idx, support_type=support_type)
+            support_objs.append(support)
+            print(f"Auto support {i+1}: Vertex {idx} - {support_type.value}")
+    
+    return support_objs
 
 def select_vertices():
     """Vertex selection system with automatic support detection"""
@@ -420,12 +442,26 @@ def select_vertices():
             support_input = input("\nSupport vertices (comma-separated, or 'auto' for automatic detection): ").lower()
             
             if support_input == 'auto' or support_input == '':
-                support_vertex_indices = detect_support_vertices(vertices)
-                print(f"Using automatic support detection: {support_vertex_indices}")
+                # Clear any existing supports
+                clear_supports()
+                # Create new supports using auto-detection
+                auto_supports = detect_support_vertices(vertices)
+                for support in auto_supports:
+                    add_support(support.vertex_index, support.support_type, support.direction)
+                support_vertex_indices = [s.vertex_index for s in get_supports()]
                 break
                 
+            # Manual support specification (legacy format - will be updated in next phase)
             indices = [int(idx.strip()) for idx in support_input.split(',')]
-            support_vertex_indices = indices
+            
+            # Clear existing supports
+            clear_supports()
+            
+            # Add new supports with default FIXED type
+            for idx in indices:
+                add_support(idx, SupportType.FIXED)
+                
+            support_vertex_indices = [s.vertex_index for s in get_supports()]
             print(f"Support vertices: {support_vertex_indices}")
             break
             
@@ -448,16 +484,37 @@ def select_vertices():
     marker.name = "Force Application Point"
     collection.objects.link(marker)
     
-    # Support vertex markers
-    for idx in support_vertex_indices:
+    # Support vertex markers with type indicators
+    for support in get_supports():
         try:
+            idx = support.vertex_index
             v = obj.data.vertices[idx]
+            
+            # Create marker
             marker = bpy.data.objects.new(f"SupportMarker_{idx}", bpy.data.meshes.new("SupportMarker"))
             marker.location = v.co
             marker.scale = (0.08, 0.08, 0.08)
+            
+            # Set name and type indicator
+            support_type = support.support_type.value.upper()
+            marker.name = f"{support_type} Support {idx}"
             marker.show_name = True
-            marker.name = f"Support Point {idx}"
+            
+            # Add to collection
             collection.objects.link(marker)
+            
+            # Add visual indicator for support type
+            if support.support_type == SupportType.ROLLER:
+                # Add a small arrow for roller direction
+                bpy.ops.mesh.primitive_cone_add(
+                    radius1=0.02, 
+                    depth=0.1,
+                    location=(v.co.x, v.co.y, v.co.z - 0.05)
+                )
+                arrow = bpy.context.active_object
+                arrow.name = f"RollerDir_{idx}"
+                collection.objects.link(arrow)
+                
         except IndexError:
             print(f"WARNING: Vertex index {idx} is out of range!")
             continue

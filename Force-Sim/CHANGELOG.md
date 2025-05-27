@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## Version 0.1.8 - 2025-05-27
+### Features
+- **Enhanced Support System**
+  - Added Support class for better support management
+  - Support for different support types (FIXED, PINNED, ROLLER)
+  - Improved auto-detection of support vertices
+  - Visual indicators for different support types
+
+### Improvements
+- **Chassis Analysis**
+  - Default support type set to FIXED for chassis analysis
+  - Better distribution of auto-detected supports
+  - Support for up to 4 wheel positions
+
+### Bug Fixes
+- Fixed support visualization for different support types
+- Improved error handling in support detection
+
 ## Version 0.1.7 - 2025-05-25
 ### Features
 - Enhanced vertex selection system

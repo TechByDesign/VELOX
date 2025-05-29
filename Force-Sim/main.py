@@ -72,10 +72,12 @@ selected_vertex_index = None
 def get_selected_vertex_index() -> Optional[int]:
     """Get the selected vertex index in Edit Mode"""
     if bpy.context.mode != 'EDIT_MESH':
+        print("Not in EDIT SELECTION mode")
         return None
         
     obj = bpy.context.edit_object
     if not obj or obj.type != 'MESH':
+        print("Select a valid MESH")
         return None
         
     bm = bmesh.from_edit_mesh(obj.data)
@@ -85,7 +87,7 @@ def get_selected_vertex_index() -> Optional[int]:
     
     if len(selected_verts) == 1:
         return selected_verts[0].index
-    
+    print("Select a valid amount of verticies")
     return None
 
 def detect_support_vertices(vertices: List[Vector], 
@@ -168,7 +170,7 @@ def select_vertices() -> None:
 
 def run_analysis() -> None:
     """Main analysis function"""
-    global selected_vertex_index
+    selected_vertex_index = get_selected_vertex_index()
     
     obj = bpy.context.active_object
     if not obj or obj.type != 'MESH':

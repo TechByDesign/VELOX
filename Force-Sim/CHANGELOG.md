@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [Unreleased]
+### Fixed
+- **Module Reloading Issues**
+  - Fixed module reloading to ensure code changes take effect without restarting Blender
+  - Added proper error handling for module imports
+
+- **Support System**
+  - Fixed `SupportType` enum handling in support detection
+  - Improved error messages for invalid support types
+  - Fixed support detection when no vertex is selected
+
+### Known Issues
+- Force visualization shows green spheres on all edges regardless of force magnitude
+- Force application cylinders appear on incorrect vertices
+- Force distribution through the structure is not working as expected
+
 ## Version 0.1.8 - 2025-05-27
 ### Features
 - **Enhanced Support System**

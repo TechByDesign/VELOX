@@ -1,43 +1,55 @@
 """
-User interface components for the force analysis tool.
+UI and interaction functions for force analysis.
+
+This module handles user interaction and the main analysis workflow.
 """
+
 import bpy
 import bmesh
 from mathutils import Vector
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
-from .models import Support, SupportType
-from .settings import supports, force_components, force_magnitude, base_radius, text_scale, input_force_color
+from .support import Support, SupportType, supports, add_support, clear_supports
+from .settings import force_components, force_magnitude, base_radius, text_scale, input_force_color
 from .calculations import get_mesh_data, calculate_forces
 from .visualization import visualize_forces, clear_force_collection
 
-# Global variables
-selected_vertex_index = None
-
-
 def get_selected_vertex_index() -> Optional[int]:
     """Get the selected vertex index in Edit Mode"""
-    if bpy.context.mode != 'EDIT_MESH':
-        return None
+    switch_to_edit_mode = False
+    try:
+        obj = bpy.context.active_object
+        if not obj or obj.type != 'MESH' or obj.mode != 'EDIT':
+            print("Not in Edit Mode or no mesh object selected: Reverting to Edit mode")
+            bpy.ops.object.mode_set(mode='EDIT')
+            switch_to_edit_mode = True
+            # return None
         
-    obj = bpy.context.edit_object
-    if not obj or obj.type != 'MESH':
-        return None
+        # Get the mesh data
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
         
-    bm = bmesh.from_edit_mesh(obj.data)
-    bm.verts.ensure_lookup_table()
-    
-    selected_verts = [v for v in bm.verts if v.select]
-    
-    if len(selected_verts) == 1:
-        return selected_verts[0].index
-    
-    return None
+        # Find selected vertices
+        selected_verts = [v for v in bm.verts if v.select]
+        
+        if len(selected_verts) == 1:
+            print("Selected vertex index:", selected_verts[0].index)
+            return selected_verts[0].index
+        
+        print("No single vertex selected")
+        if switch_to_edit_mode:
+            bpy.ops.object.mode_set(mode='OBJECT')
+        return None
+    except Exception as e:
+        print(f"Error in get_selected_vertex_index: {e}")
+        return None
+    finally:
+        # Ensure we don't leak BMesh objects
+        if 'bm' in locals():
+            bm.free()
 
-
-def detect_support_vertices(vertices: List[Vector], 
-                           support_type: SupportType = SupportType.FIXED, 
-                           max_supports: int = 4) -> List[Support]:
+def detect_support_vertices(vertices: List[Vector], support_type=None, 
+                          max_supports: int = 4) -> List[Support]:
     """Automatically detect support vertices based on lowest Z coordinates.
     
     Args:
@@ -51,113 +63,139 @@ def detect_support_vertices(vertices: List[Vector],
     if not vertices:
         return []
     
-    # Find the lowest Z coordinate
-    min_z = min(v.z for v in vertices)
+    # Ensure support_type is a valid SupportType
+    from .support import SupportType as ST
+    if support_type is None:
+        support_type = ST.FIXED
+    elif not isinstance(support_type, ST):
+        raise TypeError(f"support_type must be a SupportType enum, got {type(support_type).__name__}")
     
-    # Find all vertices at or near the lowest Z
-    tolerance = 0.001
-    bottom_vertices = [
-        (i, v) for i, v in enumerate(vertices) 
-        if abs(v.z - min_z) <= tolerance
-    ]
+    # Sort vertices by Z coordinate (lowest first)
+    sorted_verts = sorted([(i, v) for i, v in enumerate(vertices)], 
+                         key=lambda x: x[1].z)
     
-    # Sort by X coordinate to get left-to-right order
-    bottom_vertices.sort(key=lambda x: x[1].x)
-    
-    # Take up to max_supports vertices, evenly distributed
-    if len(bottom_vertices) > max_supports:
-        step = max(1, len(bottom_vertices) // max_supports)
-        selected_indices = [i for i in range(0, len(bottom_vertices), step)][:max_supports]
-        bottom_vertices = [bottom_vertices[i] for i in selected_indices]
+    # Take the lowest max_supports vertices
+    support_verts = sorted_verts[:max_supports]
     
     # Create supports
-    support_list = []
-    for idx, _ in bottom_vertices:
+    support_objs = []
+    for idx, _ in support_verts:
         support = Support(vertex_index=idx, support_type=support_type)
-        support_list.append(support)
-        
-    return support_list
-
+        supports[idx] = support
+        support_objs.append(support)
+    
+    return support_objs
 
 def select_vertices() -> None:
     """Vertex selection system with automatic support detection"""
-    global selected_vertex_index
-    
-    obj = bpy.context.active_object
-    if not obj or obj.type != 'MESH':
-        print("No mesh object selected")
-        return
-    
-    # Get the mesh data
-    bm = bmesh.from_edit_mesh(obj.data)
-    bm.verts.ensure_lookup_table()
-    
-    # Get selected vertices
-    selected_verts = [v for v in bm.verts if v.select]
-    
-    if not selected_verts:
-        print("No vertices selected")
-        return
-    
-    # Get vertex indices
-    selected_indices = [v.index for v in selected_verts]
-    
-    # Toggle selection for force application
-    if len(selected_indices) == 1:
-        idx = selected_indices[0]
-        if selected_vertex_index == idx:
-            # Deselect if clicking the same vertex
-            selected_vertex_index = None
-            print(f"Deselected vertex {idx}")
-        else:
-            selected_vertex_index = idx
-            print(f"Selected vertex {idx} for force application")
-    
-    # Auto-detect supports if exactly 4 vertices are selected for wheel positions
-    if len(selected_indices) == 4:
-        from .settings import clear_supports, add_support
-        clear_supports()
-        for idx in selected_indices:
-            add_support(idx, SupportType.FIXED)
-        print(f"Added supports at vertices: {selected_indices}")
-    
-    # Update the display
-    bmesh.update_edit_mesh(obj.data)
-
+    try:
+        obj = bpy.context.active_object
+        if not obj or obj.type != 'MESH':
+            print("No mesh object selected")
+            return
+        
+        # Store current mode
+        current_mode = obj.mode
+        if current_mode != 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
+        
+        # Get mesh data
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        
+        # Get selected vertices
+        selected_verts = [v for v in bm.verts if v.select]
+        
+        if not selected_verts:
+            print("No vertices selected")
+            return
+        
+        # Get vertex indices
+        selected_indices = [v.index for v in selected_verts]
+        
+        # Toggle selection for force application
+        if len(selected_indices) == 1:
+            idx = selected_indices[0]
+            if hasattr(bpy.context.scene, 'selected_vertex_index') and \
+               bpy.context.scene.selected_vertex_index == idx:
+                # Deselect if clicking the same vertex
+                bpy.context.scene.selected_vertex_index = -1
+                print(f"Deselected vertex {idx}")
+            else:
+                bpy.context.scene.selected_vertex_index = idx
+                print(f"Selected vertex {idx} for force application")
+        
+        # Auto-detect supports if exactly 4 vertices are selected for wheel positions
+        if len(selected_indices) == 4:
+            from .support import SupportType as ST
+            clear_supports()
+            for idx in selected_indices:
+                add_support(idx, ST.FIXED)
+            print(f"Added supports at vertices: {selected_indices}")
+            
+    except Exception as e:
+        print(f"Error in select_vertices: {e}")
+    finally:
+        # Clean up BMesh
+        if 'bm' in locals():
+            bm.free()
+        # Restore mode if it was changed
+        if 'current_mode' in locals() and current_mode != 'EDIT':
+            bpy.ops.object.mode_set(mode=current_mode)
 
 def run_analysis() -> None:
-    """Main analysis function to be called from Blender's scripting panel"""
-    obj = bpy.context.active_object
-    if not obj or obj.type != 'MESH':
-        print("No mesh object selected")
-        return
-    
-    # Get mesh data
-    vertices, edges = get_mesh_data(obj)
-    
-    # Auto-detect supports if none exist
-    from .settings import supports, add_support
-    if not supports:
-        support_list = detect_support_vertices(vertices)
-        for support in support_list:
-            add_support(support.vertex_index, support.support_type)
-    
-    # Calculate forces
-    edge_forces, max_force = calculate_forces(
-        vertices=vertices,
-        edges=edges,
-        force_components=force_components,
-        force_magnitude=force_magnitude,
-        selected_vertex_index=selected_vertex_index
-    )
-    
-    # Visualize forces
-    visualize_forces(
-        vertices=vertices,
-        edges=edges,
-        edge_forces=edge_forces,
-        max_force=max_force,
-        selected_vertex_index=selected_vertex_index
-    )
-    
-    print("Analysis complete")
+    """Main coordinator"""
+    try:
+        # Ensure we're in object mode
+        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # Get active object
+        obj = bpy.context.active_object
+        if not obj or obj.type != 'MESH':
+            print("Please select a mesh object")
+            return
+        
+        # Get mesh data
+        vertices, edges = get_mesh_data(obj)
+        if not vertices or not edges:
+            print("No valid mesh data found")
+            return
+        
+        # Auto-detect supports if none are defined
+        if not supports:
+            from .support import SupportType as ST
+            detect_support_vertices(vertices, support_type=ST.FIXED)
+        
+        # Get selected vertex for force application
+        selected_vertex_index = get_selected_vertex_index()
+        print("Selected vertex index:", selected_vertex_index)
+        if selected_vertex_index == -1 or selected_vertex_index >= len(vertices):
+            selected_vertex_index = None
+        
+        # Calculate forces
+        edge_forces, max_force = calculate_forces(
+            vertices, 
+            edges, 
+            force_components, 
+            force_magnitude,
+            selected_vertex_index
+        )
+        
+        if not edge_forces:
+            print("No forces to visualize")
+            return
+        
+        # Set selected_vertex_index in visualization module
+        from . import visualization
+        visualization.selected_vertex_index = selected_vertex_index if selected_vertex_index is not None else -1
+        
+        # Visualize forces
+        visualization.visualize_forces(vertices, edges, edge_forces, max_force)
+        
+        print("Analysis complete")
+        
+    except Exception as e:
+        print(f"Error in run_analysis: {e}")
+        import traceback
+        traceback.print_exc()

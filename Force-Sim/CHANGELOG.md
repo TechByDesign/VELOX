@@ -2,9 +2,28 @@
 
 ## [Unreleased]
 ### Fixed
+- **Collection Management**
+  - Fixed force visualization objects not being properly cleaned up between analyses
+  - Ensured all force visualizations are properly parented to the 'Forces' collection
+  - Added proper collection cleanup to prevent memory leaks
+  - Fixed issue where force objects were being added to both scene collection and Forces collection
+
+- **Force Visualization**
+  - Improved force cylinder placement and orientation
+  - Added better error handling for visualization creation
+  - Fixed text label positioning and orientation
+  - Improved force magnitude visualization scaling
+
 - **Module Reloading Issues**
   - Fixed module reloading to ensure code changes take effect without restarting Blender
   - Added proper error handling for module imports
+
+- **Force Calculation System**
+  - Completely rewrote force distribution algorithm to properly propagate forces through the truss structure
+  - Fixed issue where forces weren't being calculated for edges not directly connected to the input vertex
+  - Added force thresholds to prevent visualization of negligible forces
+  - Improved force vector projection for more accurate force distribution
+  - Fixed issue where green spheres appeared on all edges regardless of force magnitude
 
 - **Support System**
   - Fixed `SupportType` enum handling in support detection
@@ -12,9 +31,15 @@
   - Fixed support detection when no vertex is selected
 
 ### Known Issues
-- Force visualization shows green spheres on all edges regardless of force magnitude
-- Force application cylinders appear on incorrect vertices
-- Force distribution through the structure is not working as expected
+- Force application cylinders appear on incorrect vertices (stuck on vertex 18)
+- The force distribution algorithm could be further optimized for large structures
+
+### Root Cause Analysis
+1. **Force Calculation Issues**: The original implementation only distributed forces to edges directly connected to the selected vertex, ignoring the rest of the structure. This was fixed by implementing a more comprehensive force distribution algorithm that considers edge angles and propagates forces through the entire structure.
+
+2. **Visualization Issues**: The visualization was showing all edges regardless of force magnitude because there was no threshold for minimum force visualization. This was fixed by adding a minimum force threshold and improving the scaling of visual elements.
+
+3. **Support System Issues**: The `SupportType` enum was being referenced before it was properly imported, causing runtime errors. This was fixed by ensuring proper import order and adding type checking.
 
 ## Version 0.1.8 - 2025-05-27
 ### Features
